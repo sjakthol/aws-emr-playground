@@ -1,0 +1,236 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Amazon EMR - Common infrastructure (buckets, roles, SGs)
+
+Parameters:
+  DeploymentName:
+    Description: Name of this EMR deployment (to isolate multiple deployments)
+    Type: String
+
+Resources:
+  BootstrapBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: !Sub '${AWS::StackName}-bootstrap'
+      LifecycleConfiguration:
+        Rules:
+          - Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+          - Status: Enabled
+            NoncurrentVersionExpirationInDays: 7
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}-bootstrap' }
+      VersioningConfiguration:
+        Status: Enabled
+
+  NotebookBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: !Sub '${AWS::StackName}-notebooks'
+      LifecycleConfiguration:
+        Rules:
+          - Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+          - Status: Enabled
+            NoncurrentVersionExpirationInDays: 7
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}-notebooks' }
+      VersioningConfiguration:
+        Status: Enabled
+
+  WorkspaceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: !Sub '${AWS::StackName}-workspace'
+      LifecycleConfiguration:
+        Rules:
+          - Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+          - Status: Enabled
+            NoncurrentVersionExpirationInDays: 7
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}-workspace' }
+      VersioningConfiguration:
+        Status: Enabled
+
+  EmrInstanceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Path: /
+      RoleName: !Sub ${AWS::StackName}-emr-instance-role
+      Policies:
+      - PolicyName: EmrBasicAccess
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - ec2:Describe*
+            - elasticmapreduce:Describe*
+            - elasticmapreduce:ListBootstrapActions
+            - elasticmapreduce:ListClusters
+            - elasticmapreduce:ListInstanceGroups
+            - elasticmapreduce:ListInstances
+            - elasticmapreduce:ListSteps
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - s3:DeleteObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:PutObject
+            Resource:
+            - !Sub arn:aws:s3:::${AWS::StackName}-bootstrap
+            - !Sub arn:aws:s3:::${AWS::StackName}-bootstrap/*
+            - !Sub arn:aws:s3:::${AWS::StackName}-notebooks
+            - !Sub arn:aws:s3:::${AWS::StackName}-notebooks/*
+            - !Sub arn:aws:s3:::${AWS::StackName}-workspace
+            - !Sub arn:aws:s3:::${AWS::StackName}-workspace/*
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+            Resource:
+              - Fn::Sub:
+                - 'arn:aws:s3:::${Bucket}/${DeploymentName}/emr/*'
+                - { Bucket: !ImportValue 'infra-buckets-LogBucket' }
+
+  EmrInstanceRoleProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Roles:
+        - !Ref EmrInstanceRole
+
+  EmrServiceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: elasticmapreduce.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceRole
+      Path: /
+      RoleName: !Sub ${AWS::StackName}-emr-service-role
+
+  EmrAutoScalingRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: elasticmapreduce.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceforAutoScalingRole
+      Path: /
+      RoleName: !Sub ${AWS::StackName}-emr-autoscaling-role
+
+  MasterSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${AWS::StackName}-master-sg
+      GroupDescription: !Sub EMR master node security group for ${DeploymentName} clusters
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}-master-sg' }
+      VpcId: !ImportValue infra-vpc-VpcId
+
+  WorkerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${AWS::StackName}-worker-sg
+      GroupDescription: !Sub EMR worker node security group for ${DeploymentName} clusters
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}-worker-sg' }
+      VpcId: !ImportValue infra-vpc-VpcId
+
+  ServiceAccessSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${AWS::StackName}-service-sg
+      GroupDescription: !Sub EMR service access security group for ${DeploymentName} clusters
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}-service-sg' }
+      VpcId: !ImportValue infra-vpc-VpcId
+
+Outputs:
+  EmrInstanceRoleArn:
+    Description: The ARN of the IAM role to use for the EMR cluster instances.
+    Value: !GetAtt EmrInstanceRoleProfile.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-emr-instance-role-arn'
+
+  EmrServiceRoleArn:
+    Description: The ARN of the IAM role to use for the EMR service.
+    Value: !GetAtt EmrServiceRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-emr-service-role-arn'
+
+  EmrAutoScalingRoleArn:
+    Description: The ARN of the IAM role to use for the EMR auto scaling.
+    Value: !GetAtt EmrAutoScalingRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-emr-autoscaling-role-arn'
+
+  BootstrapBucket:
+    Description: Name of the bucket used for EMR bootstrap action scripts.
+    Value: !Ref BootstrapBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-bootstrap-bucket'
+
+  NotebookBucket:
+    Description: Name of the bucket used to store Jupyter / Zeppelin notebooks.
+    Value: !Ref NotebookBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-notebook-bucket'
+
+  WorkspaceBucket:
+    Description: Name of the bucket used to store (temporary) datasets
+    Value: !Ref WorkspaceBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-workspace-bucket'
+
+  MasterSecurityGroup:
+    Description: EMR Managed Security Group for Master Nodes
+    Value: !GetAtt MasterSecurityGroup.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}-master-sg'
+
+  WorkerSecurityGroup:
+    Description: EMR Managed Security Group for Worker Nodes
+    Value: !GetAtt WorkerSecurityGroup.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}-worker-sg'
+
+  ServiceAccessSecurityGroup:
+    Description: EMR Managed Security Group for Service Access
+    Value: !GetAtt ServiceAccessSecurityGroup.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}-service-sg'

@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Amazon EMR - Common cluster template
+
+Parameters:
+  DeploymentName:
+    Description: Name of this EMR deployment (to isolate multiple deployments)
+    Type: String
+
+  SSHKeyName:
+    Description: Name of an existing EC2 SSH key to give the instance
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: sjakthol
+
+Resources:
+  EMRCluster:
+    Type: AWS::EMR::Cluster
+    Properties:
+      Applications:
+        - { Name: Spark }
+        - { Name: Zeppelin }
+      AutoScalingRole:
+        Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-autoscaling-role-arn
+      BootstrapActions:
+        - Name: SetupNodes
+          ScriptBootstrapAction:
+              Path:
+                Fn::Sub:
+                - 's3://${Bucket}/bootstrap-common.sh'
+                - Bucket:
+                    Fn::ImportValue: !Sub ${DeploymentName}-infra-bootstrap-bucket
+              Args:
+                - !Sub ${DeploymentName}
+      Configurations:
+        - Classification: 'spark-env'
+          Configurations:
+            - Classification: 'export'
+              ConfigurationProperties:
+                PYSPARK_PYTHON: '${PYSPARK_PYTHON:-/usr/bin/python3}'
+                PYSPARK_DRIVER_PYTHON: '${PYSPARK_DRIVER_PYTHON:-/usr/bin/python3}'
+        - Classification: 'zeppelin-env'
+          Configurations:
+            - Classification: 'export'
+              ConfigurationProperties:
+                ZEPPELIN_NOTEBOOK_STORAGE: org.apache.zeppelin.notebook.repo.S3NotebookRepo
+                ZEPPELIN_NOTEBOOK_S3_BUCKET:
+                  Fn::ImportValue: !Sub ${DeploymentName}-infra-notebook-bucket
+                ZEPPELIN_NOTEBOOK_S3_USER: zeppelin
+      Instances:
+        CoreInstanceGroup:
+          InstanceCount: 1
+          InstanceType: m5.xlarge
+          Market: SPOT
+        Ec2KeyName: !Ref SSHKeyName
+        Ec2SubnetId: !ImportValue infra-vpc-sn-public-a
+        EmrManagedMasterSecurityGroup:
+          Fn::ImportValue: !Sub ${DeploymentName}-infra-master-sg
+        EmrManagedSlaveSecurityGroup:
+          Fn::ImportValue: !Sub ${DeploymentName}-infra-worker-sg
+        MasterInstanceGroup:
+          InstanceCount: 1
+          InstanceType: m5.xlarge
+          Market: SPOT
+        # ServiceAccessSecurityGroup:
+        #   Fn::ImportValue: !Sub ${DeploymentName}-infra-service-sg
+      JobFlowRole:
+        Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-instance-role-arn
+      LogUri:
+        Fn::Sub:
+        - 's3://${Bucket}/${DeploymentName}/emr/'
+        - { Bucket: !ImportValue 'infra-buckets-LogBucket' }
+      Name: !Sub '${AWS::StackName}'
+      ReleaseLabel: emr-5.28.0
+      ServiceRole:
+        Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-service-role-arn
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}' }
