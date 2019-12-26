@@ -34,7 +34,6 @@ Alternatively, you can modify the master instance security group to allow incomi
 Once done, you can access services as follows:
 * JupyterLab - http://localhost:8888/
 * Zeppelin - http://localhost:8890/
-* YARN - http://localhost:8088/
 
 ## Credits
 * JupyterLab setup: https://aws.amazon.com/blogs/big-data/running-jupyter-notebook-and-jupyterhub-on-amazon-emr/
