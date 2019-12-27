@@ -116,6 +116,18 @@ Resources:
               - Fn::Sub:
                 - 'arn:aws:s3:::${Bucket}/${DeploymentName}/emr/*'
                 - { Bucket: !ImportValue 'infra-buckets-LogBucket' }
+          - Effect: Allow
+            Action:
+              - ecr:GetAuthorizationToken
+            Resource:
+              - '*'
+          - Effect: Allow
+            Action:
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+            Resource:
+              - !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${DeploymentName}/pyspark-runtime
 
   EmrInstanceRoleProfile:
     Type: "AWS::IAM::InstanceProfile"
@@ -179,6 +191,13 @@ Resources:
       Tags:
         - { Key: Name, Value: !Sub '${AWS::StackName}-service-sg' }
       VpcId: !ImportValue infra-vpc-VpcId
+
+  PysparkRuntimeImage:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${DeploymentName}/pyspark-runtime'
+      Tags:
+        - { Key: Name, Value: !Sub '${DeploymentName}/pyspark-runtime' }
 
 Outputs:
   EmrInstanceRoleArn:

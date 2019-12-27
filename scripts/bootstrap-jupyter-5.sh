@@ -2,13 +2,11 @@
 
 set -euxo pipefail
 
-sudo yum install -y amazon-ssm-agent
-
-DEPLOYMENT_NAME=${1:?DEPLOYMENT_NAME must be the first argument}
-
 if grep isMaster /mnt/var/lib/info/instance.json | grep false; then
   exit 0
 fi
+
+DEPLOYMENT_NAME=${1:?DEPLOYMENT_NAME must be the first argument}
 
 # Install JupyterLab
 sudo python3 -m pip install jupyterlab s3contents
@@ -28,7 +26,7 @@ c.S3ContentsManager.bucket = "${DEPLOYMENT_NAME}-infra-notebooks"
 c.S3ContentsManager.prefix = "jupyter"
 EOF
 
-# Create Jupyter service
+# Create Jupyter service (Amazon Linux 1 with Upstart)
 cat << EOF | sudo tee /etc/init/jupyter.conf
 respawn
 post-stop exec sleep 5
@@ -38,10 +36,10 @@ stop on runlevel [06]
 
 script
 sudo su - hadoop >> /var/log/jupyter/jupyter.log 2>&1 <<BASH_SCRIPT
-    export PYSPARK_PYTHON="python3"
-    export PYSPARK_DRIVER_PYTHON="jupyter"
-    export PYSPARK_DRIVER_PYTHON_OPTS="lab --no-browser --log-level=INFO --ip 127.0.0.1 --LabApp.token=''"
-    pyspark
+  export PYSPARK_PYTHON="python3"
+  export PYSPARK_DRIVER_PYTHON="jupyter"
+  export PYSPARK_DRIVER_PYTHON_OPTS="lab --no-browser --log-level=INFO --ip 127.0.0.1 --LabApp.token=''"
+  pyspark
 BASH_SCRIPT
 end script
 EOF
