@@ -7,6 +7,7 @@ deploy-$(basename $(notdir $(1))): $(1)
 		--stack-name $(DEPLOYMENT_NAME)-$(basename $(notdir $(1))) \
 		--tags $(TAGS) \
 		--parameter-overrides DeploymentName=$(DEPLOYMENT_NAME) \
+		--no-fail-on-empty-changeset \
 		--template-file $(1) \
 		--capabilities CAPABILITY_NAMED_IAM
 
