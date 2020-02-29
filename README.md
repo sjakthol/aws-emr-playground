@@ -35,6 +35,69 @@ Once done, you can access services as follows:
 * JupyterLab - http://localhost:8888/
 * Zeppelin - http://localhost:8890/
 
+### EMR 6.0.0 Beta
+
+EMR 6.0.0 Beta allows Spark applications to be executed inside Docker container. Use the following
+commands to build a runtime image for PySpark scripts:
+```bash
+cd containers/pyspark-runtime/ && make login build push
+```
+Next, setup an EMR cluster using the `emr-6.0.0-beta2` version by changing the `ReleaseLabel` parameter value
+in `cluster.yaml`.
+
+#### Docker Configuration & ECR Credentials
+
+Spark requires credentials to pull images from ECR. Currently, these credentials must be supplied in a
+Docker configuration file stored in HDFS storage of the EMR cluster. Use the following credentials to
+prepare the Docker configuration:
+
+```bash
+aws --region eu-west-1 ecr get-login --no-include-email | sed "s/docker/sudo docker/g" | bash
+mkdir -p ~/.docker && sudo cp /root/.docker/config.json ~/.docker && sudo chown hadoop ~/.docker/config.json
+hadoop fs -put ~/.docker/config.json /user/hadoop/
+```
+
+Docker configuration with credentials to pull images from ECR are now available in
+`hdfs:///user/hadoop/config.json`
+
+#### Running PySpark Applications
+
+SSH into master node and run the following commands to execute a PySpark script (`main.py`) inside
+the pyspark-runtime container:
+```bash
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+DOCKER_IMAGE_NAME=$ACCOUNT.dkr.ecr.eu-west-1.amazonaws.com/ew1-emr-default/pyspark-runtime:base
+DOCKER_CLIENT_CONFIG=hdfs:///user/hadoop/config.json
+spark-submit --master yarn \
+    --deploy-mode cluster \
+    --conf spark.executorEnv.YARN_CONTAINER_RUNTIME_TYPE=docker \
+    --conf spark.executorEnv.YARN_CONTAINER_RUNTIME_DOCKER_IMAGE=$DOCKER_IMAGE_NAME \
+    --conf spark.executorEnv.YARN_CONTAINER_RUNTIME_DOCKER_CLIENT_CONFIG=$DOCKER_CLIENT_CONFIG \
+    --conf spark.executorEnv.YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS=/etc/passwd:/etc/passwd:ro \
+    --conf spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_TYPE=docker \
+    --conf spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_DOCKER_IMAGE=$DOCKER_IMAGE_NAME \
+    --conf spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_DOCKER_CLIENT_CONFIG=$DOCKER_CLIENT_CONFIG \
+    --conf spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS=/etc/passwd:/etc/passwd:ro \
+    --num-executors 2 \
+    main.py -v
+```
+
+You can find the application logs by using the YARN CLI:
+```bash
+yarn logs -applicationId <app_id_from_spark-submit_output>
+```
+
+Here's a simple `main.py` that can be used to test if the setup works:
+```python
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("docker-numpy").getOrCreate()
+
+import numpy as np
+a = np.arange(15).reshape(3, 5)
+
+print(a)
+```
+
 ## Credits
 * JupyterLab setup: https://aws.amazon.com/blogs/big-data/running-jupyter-notebook-and-jupyterhub-on-amazon-emr/
 
