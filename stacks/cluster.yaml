@@ -6,19 +6,13 @@ Parameters:
     Description: Name of this EMR deployment (to isolate multiple deployments)
     Type: String
 
-  SSHKeyName:
-    Description: Name of an existing EC2 SSH key to give the instance
-    Type: AWS::EC2::KeyPair::KeyName
-    Default: sjakthol
-
   ReleaseLabel:
     Description: EMR release to use
     Type: String
-    Default: emr-6.0.0-beta2 # emr-5.28.0
+    Default: emr-6.4.0 # emr-5.33.1
 
 Conditions:
   IsEmr6: !Equals [!Select [0, !Split ['.', !Select [1, !Split ['-', !Ref ReleaseLabel]]]], '6']
-  IsEmr5: !Equals [!Select [0, !Split ['.', !Select [1, !Split ['-', !Ref ReleaseLabel]]]], '5']
 
 Resources:
   EMRCluster:
@@ -26,83 +20,70 @@ Resources:
     Properties:
       Applications:
         - { Name: Spark }
-        - !If [IsEmr5, { Name: Zeppelin }, !Ref 'AWS::NoValue']
-      AutoScalingRole:
-        Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-autoscaling-role-arn
+        - { Name: Zeppelin }
+        - { Name: Livy }
       BootstrapActions:
-        - Name: CommonSetup
+        - Name: SetupJupyter
           ScriptBootstrapAction:
               Path:
                 Fn::Sub:
-                - 's3://${Bucket}/bootstrap-common-${EmrMajorVersion}.sh'
+                - "s3://${Bucket}/bootstrap-jupyter.sh"
                 - Bucket:
-                    Fn::ImportValue: !Sub ${DeploymentName}-infra-bootstrap-bucket
-                  EmrMajorVersion:
-                    !Select [0, !Split ['.', !Select [1, !Split ['-', !Ref ReleaseLabel]]]]
-              Args:
-                - !Sub ${DeploymentName}
-        - Name: SetupJupyterLab
-          ScriptBootstrapAction:
-              Path:
-                Fn::Sub:
-                - 's3://${Bucket}/bootstrap-jupyter-${EmrMajorVersion}.sh'
-                - Bucket:
-                    Fn::ImportValue: !Sub ${DeploymentName}-infra-bootstrap-bucket
-                  EmrMajorVersion:
-                    !Select [0, !Split ['.', !Select [1, !Split ['-', !Ref ReleaseLabel]]]]
+                    Fn::ImportValue: !Sub ${DeploymentName}-infra-BootstrapBucket
               Args:
                 - !Sub ${DeploymentName}
       Configurations:
         - Fn::If:
-          - IsEmr6
-          - Classification: 'container-executor'
-            Configurations:
-              - Classification: docker
-                ConfigurationProperties:
-                  docker.trusted.registries: !Sub 'local,centos,${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com'
-                  docker.privileged-containers.registries: !Sub 'local,centos,${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com'
-          - !Ref AWS::NoValue
-        - Classification: 'spark-env'
+            - IsEmr6
+            - Classification: "container-executor"
+              Configurations:
+                - Classification: docker
+                  ConfigurationProperties:
+                    docker.trusted.registries: !Sub "local,centos,${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com"
+                    docker.privileged-containers.registries: !Sub "local,centos,${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com"
+            - !Ref AWS::NoValue
+        - Classification: "zeppelin-env"
           Configurations:
-            - Classification: 'export'
-              ConfigurationProperties:
-                PYSPARK_PYTHON: '${PYSPARK_PYTHON:-/usr/bin/python3}'
-                PYSPARK_DRIVER_PYTHON: '${PYSPARK_DRIVER_PYTHON:-/usr/bin/python3}'
-        - Classification: 'zeppelin-env'
-          Configurations:
-            - Classification: 'export'
+            - Classification: "export"
               ConfigurationProperties:
                 ZEPPELIN_NOTEBOOK_STORAGE: org.apache.zeppelin.notebook.repo.S3NotebookRepo
                 ZEPPELIN_NOTEBOOK_S3_BUCKET:
-                  Fn::ImportValue: !Sub ${DeploymentName}-infra-notebook-bucket
+                  Fn::ImportValue: !Sub ${DeploymentName}-infra-NotebookBucket
                 ZEPPELIN_NOTEBOOK_S3_USER: zeppelin
       Instances:
-        CoreInstanceGroup:
-          InstanceCount: 1
-          InstanceType: m5.xlarge
-          Market: SPOT
-        Ec2KeyName: !Ref SSHKeyName
+        CoreInstanceFleet:
+          InstanceTypeConfigs:
+            - { InstanceType: m5.xlarge }
+            - { InstanceType: c5.xlarge }
+            - { InstanceType: r5.xlarge }
+          Name: Core
+          TargetOnDemandCapacity: 0
+          TargetSpotCapacity: 1
         Ec2SubnetId: !ImportValue infra-vpc-sn-public-a
         EmrManagedMasterSecurityGroup:
-          Fn::ImportValue: !Sub ${DeploymentName}-infra-master-sg
+          Fn::ImportValue: !Sub ${DeploymentName}-infra-MasterSecurityGroup
         EmrManagedSlaveSecurityGroup:
-          Fn::ImportValue: !Sub ${DeploymentName}-infra-worker-sg
-        MasterInstanceGroup:
-          InstanceCount: 1
-          InstanceType: m5.xlarge
-          Market: SPOT
+          Fn::ImportValue: !Sub ${DeploymentName}-infra-WorkerSecurityGroup
+        MasterInstanceFleet:
+          InstanceTypeConfigs:
+            - { InstanceType: m5.xlarge }
+            - { InstanceType: c5.xlarge }
+            - { InstanceType: r5.xlarge }
+          Name: Driver
+          TargetOnDemandCapacity: 0
+          TargetSpotCapacity: 1
         # ServiceAccessSecurityGroup:
-        #   Fn::ImportValue: !Sub ${DeploymentName}-infra-service-sg
+        #   Fn::ImportValue: !Sub ${DeploymentName}-infra-ServiceAccessSecurityGroup
       JobFlowRole:
-        Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-instance-role-arn
+        Fn::ImportValue: !Sub ${DeploymentName}-infra-EmrInstanceRole
       LogUri:
         Fn::Sub:
-        - 's3://${Bucket}/${DeploymentName}/emr/'
-        - { Bucket: !ImportValue 'infra-buckets-LogBucket' }
-      Name: !Sub '${AWS::StackName}'
+          - "s3://${Bucket}/${DeploymentName}/emr/"
+          - { Bucket: !ImportValue "infra-buckets-LogBucket" }
+      Name: !Sub "${AWS::StackName}"
       ReleaseLabel: !Ref ReleaseLabel
       ServiceRole:
-        Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-service-role-arn
+        Fn::ImportValue: !Sub ${DeploymentName}-infra-EmrServiceRole
       Tags:
-        - { Key: Name, Value: !Sub '${AWS::StackName}' }
+        - { Key: Name, Value: !Sub "${AWS::StackName}" }
       VisibleToAllUsers: true

@@ -13,7 +13,7 @@ sudo python3 -m pip install jupyterlab s3contents
 
 # Prepare directories for Jupyter
 mkdir -p /home/hadoop/.jupyter/
-mkdir -p /var/log/jupyter/
+sudo mkdir -p /var/log/jupyter/
 
 # Create Jupyter config
 cat > /home/hadoop/.jupyter/jupyter_notebook_config.py << EOF
@@ -48,6 +48,7 @@ Type=simple
 Restart=always
 RestartSec=5
 User=hadoop
+WorkingDirectory=/home/hadoop
 ExecStart=/usr/local/bin/pyspark-jupyter
 
 [Install]
