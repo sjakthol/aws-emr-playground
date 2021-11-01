@@ -80,6 +80,12 @@ Resources:
         Fn::Sub:
           - "s3://${Bucket}/${DeploymentName}/emr/"
           - { Bucket: !ImportValue "infra-buckets-LogBucket" }
+      ManagedScalingPolicy:
+        ComputeLimits:
+          MaximumCapacityUnits: 2
+          MaximumOnDemandCapacityUnits: 0
+          MinimumCapacityUnits: 1
+          UnitType: InstanceFleetUnits
       Name: !Sub "${AWS::StackName}"
       ReleaseLabel: !Ref ReleaseLabel
       ServiceRole:
