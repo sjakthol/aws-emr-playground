@@ -24,9 +24,9 @@ Then, deploy a cluster by running
 make deploy-cluster
 
 # Specific EMR version (supports EMR versions that use Amazon Linux 2)
-make deploy-cluster-5.33.1
-make deploy-cluster-6.4.0
-make deploy-cluster-x.x.x
+make deploy-cluster-emr-5.33.1
+make deploy-cluster-emr-6.4.0
+make deploy-cluster-emr-x.x.x
 ```
 
 When the cluster is ready, use SSM Port Forwarding to access Zeppelin / JupyterLab on the cluster master node:
@@ -53,9 +53,9 @@ Use the following commands to delete EMR clusters:
 make delete-cluster
 
 # Cluster created with specific EMR version
-make delete-cluster-5.33.1
-make delete-cluster-6.4.0
-make delete-cluster-x.x.x
+make delete-cluster-emr-5.33.1
+make delete-cluster-emr-6.4.0
+make delete-cluster-emr-x.x.x
 ```
 
 Delete infra with (must empty S3 buckets manually)
