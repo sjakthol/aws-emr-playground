@@ -411,9 +411,15 @@ Resources:
 Outputs:
   EmrInstanceRole:
     Description: The ARN of the IAM role to use for the EMR cluster instances.
-    Value: !GetAtt EmrInstanceRoleProfile.Arn
+    Value: !GetAtt EmrInstanceRole.Arn
     Export:
       Name: !Sub "${AWS::StackName}-EmrInstanceRole"
+
+  EmrInstanceRoleProfile:
+    Description: The ARN of the IAM role profile to use for the EMR cluster instances.
+    Value: !GetAtt EmrInstanceRoleProfile.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-EmrInstanceRoleProfile"
 
   EmrServiceRole:
     Description: The ARN of the IAM role to use for the EMR service.

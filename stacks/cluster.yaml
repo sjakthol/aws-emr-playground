@@ -75,7 +75,7 @@ Resources:
         # ServiceAccessSecurityGroup:
         #   Fn::ImportValue: !Sub ${DeploymentName}-infra-ServiceAccessSecurityGroup
       JobFlowRole:
-        Fn::ImportValue: !Sub ${DeploymentName}-infra-EmrInstanceRole
+        Fn::ImportValue: !Sub ${DeploymentName}-infra-EmrInstanceRoleProfile
       LogUri:
         Fn::Sub:
           - "s3://${Bucket}/${DeploymentName}/emr/"
