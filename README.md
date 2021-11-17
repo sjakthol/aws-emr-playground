@@ -14,7 +14,7 @@ You'll need to setup the VPC, subnet and bucket stacks from [sjakthol/aws-accoun
 Create the EMR infra (roles, buckets, security groups) by running
 
 ```
-make deploy-infra
+make deploy-infra-emr
 ```
 
 Then, deploy a cluster by running
@@ -61,7 +61,7 @@ make delete-cluster-emr-x.x.x
 Delete infra with (must empty S3 buckets manually)
 
 ```
-make delete-infra
+make delete-infra-emr
 ```
 
 ## Credits

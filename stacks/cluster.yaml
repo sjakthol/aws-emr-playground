@@ -6,6 +6,11 @@ Parameters:
     Description: Name of this EMR deployment (to isolate multiple deployments)
     Type: String
 
+  ClusterCapacityUnits:
+    Type: Number
+    Description: Amount of compute capacity to provision to the cluster. 1 capacity unit = 4 vCPU and 8-32 GB of memory
+    Default: 1
+
   ReleaseLabel:
     Description: EMR release to use
     Type: String
@@ -19,9 +24,10 @@ Resources:
     Type: AWS::EMR::Cluster
     Properties:
       Applications:
+        - { Name: JupyterEnterpriseGateway }
+        - { Name: Livy }
         - { Name: Spark }
         - { Name: Zeppelin }
-        - { Name: Livy }
       BootstrapActions:
         - Name: SetupJupyter
           ScriptBootstrapAction:
@@ -29,7 +35,7 @@ Resources:
                 Fn::Sub:
                 - "s3://${Bucket}/bootstrap-jupyter.sh"
                 - Bucket:
-                    Fn::ImportValue: !Sub ${DeploymentName}-infra-BootstrapBucket
+                    Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-BootstrapBucket
               Args:
                 - !Sub ${DeploymentName}
       Configurations:
@@ -48,48 +54,64 @@ Resources:
               ConfigurationProperties:
                 ZEPPELIN_NOTEBOOK_STORAGE: org.apache.zeppelin.notebook.repo.S3NotebookRepo
                 ZEPPELIN_NOTEBOOK_S3_BUCKET:
-                  Fn::ImportValue: !Sub ${DeploymentName}-infra-NotebookBucket
+                  Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-NotebookBucket
                 ZEPPELIN_NOTEBOOK_S3_USER: zeppelin
       Instances:
         CoreInstanceFleet:
           InstanceTypeConfigs:
-            - { InstanceType: m5.xlarge }
             - { InstanceType: c5.xlarge }
+            - { InstanceType: c5a.xlarge }
+            - { InstanceType: c5d.xlarge }
+            - { InstanceType: m5.xlarge }
             - { InstanceType: r5.xlarge }
+            - { InstanceType: r5d.xlarge }
+          LaunchSpecifications:
+              OnDemandSpecification:
+                AllocationStrategy: lowest-price
+              SpotSpecification:
+                AllocationStrategy: capacity-optimized
+                TimeoutAction: TERMINATE_CLUSTER
+                TimeoutDurationMinutes: 30
           Name: Core
           TargetOnDemandCapacity: 0
-          TargetSpotCapacity: 1
-        Ec2SubnetId: !ImportValue infra-vpc-sn-public-a
+          TargetSpotCapacity: !Ref ClusterCapacityUnits
+        Ec2SubnetIds:
+          - !ImportValue infra-vpc-sn-public-a
+          - !ImportValue infra-vpc-sn-public-b
         EmrManagedMasterSecurityGroup:
-          Fn::ImportValue: !Sub ${DeploymentName}-infra-MasterSecurityGroup
+          Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-MasterSecurityGroup
         EmrManagedSlaveSecurityGroup:
-          Fn::ImportValue: !Sub ${DeploymentName}-infra-WorkerSecurityGroup
+          Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-WorkerSecurityGroup
         MasterInstanceFleet:
           InstanceTypeConfigs:
-            - { InstanceType: m5.xlarge }
             - { InstanceType: c5.xlarge }
+            - { InstanceType: c5a.xlarge }
+            - { InstanceType: c5d.xlarge }
+            - { InstanceType: m5.xlarge }
             - { InstanceType: r5.xlarge }
+            - { InstanceType: r5d.xlarge }
+          LaunchSpecifications:
+              OnDemandSpecification:
+                AllocationStrategy: lowest-price
+              SpotSpecification:
+                AllocationStrategy: capacity-optimized
+                TimeoutAction: TERMINATE_CLUSTER
+                TimeoutDurationMinutes: 30
           Name: Driver
           TargetOnDemandCapacity: 0
           TargetSpotCapacity: 1
         # ServiceAccessSecurityGroup:
-        #   Fn::ImportValue: !Sub ${DeploymentName}-infra-ServiceAccessSecurityGroup
+        #   Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-ServiceAccessSecurityGroup
       JobFlowRole:
-        Fn::ImportValue: !Sub ${DeploymentName}-infra-EmrInstanceRoleProfile
+        Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-EmrInstanceRoleProfile
       LogUri:
         Fn::Sub:
           - "s3://${Bucket}/${DeploymentName}/emr/"
           - { Bucket: !ImportValue "infra-buckets-LogBucket" }
-      ManagedScalingPolicy:
-        ComputeLimits:
-          MaximumCapacityUnits: 2
-          MaximumOnDemandCapacityUnits: 0
-          MinimumCapacityUnits: 1
-          UnitType: InstanceFleetUnits
       Name: !Sub "${AWS::StackName}"
       ReleaseLabel: !Ref ReleaseLabel
       ServiceRole:
-        Fn::ImportValue: !Sub ${DeploymentName}-infra-EmrServiceRole
+        Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-EmrServiceRole
       Tags:
         - { Key: Name, Value: !Sub "${AWS::StackName}" }
       VisibleToAllUsers: true

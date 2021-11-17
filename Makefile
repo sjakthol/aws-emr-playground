@@ -28,4 +28,4 @@ delete-cluster-emr-%:
 
 deploy-cluster: pre-deploy-cluster
 pre-deploy-cluster:
-	$(AWS_CMD) s3 sync scripts/ s3://$(DEPLOYMENT_NAME)-infra-bootstrap/
+	$(AWS_CMD) s3 sync scripts/ s3://$(DEPLOYMENT_NAME)-infra-emr-bootstrap/
