@@ -4,20 +4,26 @@ CloudFormation templates for setting up Amazon EMR clusters.
 
 * Infra layer with IAM roles, S3 buckets and security groups
 * EMR cluster with JupyterLab & Zeppelin notebook environments
+* Step Functions state machines for running EMR workflows
 
 ## Prerequisites
 
-You'll need to setup the VPC, subnet and bucket stacks from [sjakthol/aws-account-infra](https://github.com/sjakthol/aws-account-infra).
+You'll need the VPC and bucket stacks from [sjakthol/aws-account-infra](https://github.com/sjakthol/aws-account-infra).
 
 ## Deployment
 
-Create the EMR infra (roles, buckets, security groups) by running
+### Infra
+
+Deploy infra (buckets, roles, policies, security groups etc.):
 
 ```
 make deploy-infra-emr
+make deploy-infra-workflow
 ```
 
-Then, deploy a cluster by running
+### Clusters
+
+Deploy EMR clusters:
 
 ```bash
 # Default cluster
@@ -44,9 +50,23 @@ Once done, you can access services via the following URLs:
 * JupyterLab - http://localhost:8888/
 * Zeppelin - http://localhost:8890/
 
+### Workflows
+
+Deploy workflows:
+
+```
+make deploy-workflow-static
+make deploy-workflow-parametrized
+```
+
+Workflows include:
+
+* static workflow that hard-codes cluster configuration and defines steps in state machine definition
+* parametrized workflow that takes cluster configuration and steps from execution input (see CloudFormation template for example)
+
 ### Cleanup
 
-Use the following commands to delete EMR clusters:
+Delete clusters:
 
 ```bash
 # Default cluster
@@ -58,9 +78,17 @@ make delete-cluster-emr-6.4.0
 make delete-cluster-emr-x.x.x
 ```
 
-Delete infra with (must empty S3 buckets manually)
+Delete workflows:
 
 ```
+make delete-workflow-parametrized
+make delete-workflow-static
+```
+
+Delete infra (must empty S3 buckets and clean EMR managed security group rules manually)
+
+```
+make delete-infra-workflow
 make delete-infra-emr
 ```
 

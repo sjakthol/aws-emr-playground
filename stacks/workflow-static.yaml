@@ -1,0 +1,140 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Amazon EMR - Static state machine for EMR workflow
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  DeploymentName:
+    Description: Name of this EMR deployment (to isolate multiple deployments)
+    Type: String
+
+Resources:
+  Workflow:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: !Sub ${AWS::StackName}
+      Policies:
+        - Fn::ImportValue: !Sub ${DeploymentName}-infra-workflow-EmrWorkflowRunnerPolicyArn
+      Definition:
+        Comment: !Sub Static state machine for EMR workflow (${DeploymentName})
+        StartAt: CreateCluster
+        States:
+          CreateCluster:
+            Type: Task
+            Resource: arn:aws:states:::elasticmapreduce:createCluster.sync
+            ResultPath: $.Cluster
+            Parameters:
+              Applications:
+                - Name: Spark
+              Instances:
+                Ec2SubnetIds:
+                  - !ImportValue infra-vpc-sn-public-a
+                  - !ImportValue infra-vpc-sn-public-b
+                KeepJobFlowAliveWhenNoSteps: true
+                InstanceFleets:
+                  - InstanceFleetType: MASTER
+                    Name: Master
+                    InstanceTypeConfigs:
+                      - { InstanceType: c5.xlarge }
+                      - { InstanceType: c5a.xlarge }
+                      - { InstanceType: c5d.xlarge }
+                      - { InstanceType: m5.xlarge }
+                      - { InstanceType: r5.xlarge }
+                      - { InstanceType: r5d.xlarge }
+                    LaunchSpecifications:
+                      OnDemandSpecification:
+                        AllocationStrategy: lowest-price
+                      SpotSpecification:
+                        AllocationStrategy: capacity-optimized
+                        TimeoutAction: TERMINATE_CLUSTER
+                        TimeoutDurationMinutes: 30
+                    TargetOnDemandCapacity: 0
+                    TargetSpotCapacity: 1
+                  - InstanceFleetType: CORE
+                    Name: Core
+                    InstanceTypeConfigs:
+                      - { InstanceType: c5.xlarge }
+                      - { InstanceType: c5a.xlarge }
+                      - { InstanceType: c5d.xlarge }
+                      - { InstanceType: m5.xlarge }
+                      - { InstanceType: r5.xlarge }
+                      - { InstanceType: r5d.xlarge }
+                    LaunchSpecifications:
+                      OnDemandSpecification:
+                        AllocationStrategy: lowest-price
+                      SpotSpecification:
+                        AllocationStrategy: capacity-optimized
+                        TimeoutAction: TERMINATE_CLUSTER
+                        TimeoutDurationMinutes: 30
+                    TargetOnDemandCapacity: 0
+                    TargetSpotCapacity: 1
+                EmrManagedMasterSecurityGroup:
+                  Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-MasterSecurityGroup
+                EmrManagedSlaveSecurityGroup:
+                  Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-WorkerSecurityGroup
+              JobFlowRole:
+                Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-EmrInstanceRoleProfile
+              LogUri:
+                Fn::Sub:
+                  - "s3://${Bucket}/${DeploymentName}/emr/"
+                  - { Bucket: !ImportValue "infra-buckets-LogBucket" }
+              Name.$: !Sub States.Format('${AWS::StackName}-{}', $$.Execution.Name)
+              ReleaseLabel: emr-6.4.0
+              ServiceRole:
+                Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-EmrServiceRole
+              Tags:
+                - { Key: DeploymentName, Value: !Ref DeploymentName }
+                - { Key: Name, Value.$: !Sub "States.Format('${AWS::StackName}-{}', $$.Execution.Name)" }
+              VisibleToAllUsers: true
+            Next: RunSteps
+          RunSteps:
+            Type: Parallel
+            OutputPath: $[0]
+            Branches:
+              - StartAt: Step1
+                States:
+                  Step1:
+                    Type: Task
+                    Resource: arn:aws:states:::elasticmapreduce:addStep.sync
+                    Parameters:
+                      ClusterId.$: $.Cluster.ClusterId
+                      Step:
+                        Name: Step1
+                        ActionOnFailure: CONTINUE
+                        HadoopJarStep:
+                          Jar: command-runner.jar
+                          Args: ['false']
+                    ResultPath: $.devnull
+                    Next: Step2
+                  Step2:
+                    Type: Task
+                    Resource: arn:aws:states:::elasticmapreduce:addStep.sync
+                    Parameters:
+                      ClusterId.$: $.Cluster.ClusterId
+                      Step:
+                        Name: Step2
+                        ActionOnFailure: CONTINUE
+                        HadoopJarStep:
+                          Jar: command-runner.jar
+                          Args: ['true']
+                    ResultPath: $.devnull
+                    End: true
+            Next: TerminateCluster
+            Catch:
+              - ErrorEquals:
+                  - States.ALL
+                ResultPath: $.error
+                Next: TerminateClusterFailure
+          TerminateCluster:
+            Type: Task
+            Resource: arn:aws:states:::elasticmapreduce:terminateCluster.sync
+            Parameters:
+              ClusterId.$: $.Cluster.ClusterId
+            End: true
+          TerminateClusterFailure:
+            Type: Task
+            Resource: arn:aws:states:::elasticmapreduce:terminateCluster.sync
+            Parameters:
+              ClusterId.$: $.Cluster.ClusterId
+            Next: Fail
+          Fail:
+            Type: Fail

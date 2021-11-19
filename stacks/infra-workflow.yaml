@@ -1,0 +1,56 @@
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: Amazon EMR - Common infrastructure for EMR workflows
+
+Parameters:
+  DeploymentName:
+    Description: Name of this EMR deployment (to isolate multiple deployments)
+    Type: String
+
+Resources:
+  EmrWorkflowRunnerPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: !Sub Allow execution of EMR workflows in ${DeploymentName}
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - elasticmapreduce:RunJobFlow
+            Resource: "*"
+            Condition:
+              StringEquals:
+                aws:RequestTag/DeploymentName: !Ref DeploymentName
+          - Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource:
+              - Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-EmrInstanceRole
+              - Fn::ImportValue: !Sub ${DeploymentName}-infra-emr-EmrServiceRole
+          - Effect: Allow
+            Action:
+              - elasticmapreduce:AddJobFlowSteps
+              - elasticmapreduce:CancelSteps
+              - elasticmapreduce:DescribeCluster
+              - elasticmapreduce:DescribeStep
+              - elasticmapreduce:TerminateJobFlows
+            Resource: "*"
+            Condition:
+              StringEquals:
+                aws:ResourceTag/DeploymentName: !Ref DeploymentName
+          - Effect: Allow
+            Action:
+            - events:PutTargets
+            - events:PutRule
+            - events:DescribeRule
+            Resource:
+              - !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventForEMRRunJobFlowRule
+              - !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventForEMRAddJobFlowStepsRule
+
+Outputs:
+  EmrWorkflowRunnerPolicyArn:
+    Description: The ARN of the IAM managed policy to use for running EMR workflows.
+    Value: !Ref EmrWorkflowRunnerPolicy
+    Export:
+      Name: !Sub "${AWS::StackName}-EmrWorkflowRunnerPolicyArn"
