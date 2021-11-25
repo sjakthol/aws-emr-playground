@@ -102,7 +102,7 @@ Resources:
                         ActionOnFailure: CONTINUE
                         HadoopJarStep:
                           Jar: command-runner.jar
-                          Args: ['false']
+                          Args: ['true']
                     ResultPath: $.devnull
                     Next: Step2
                   Step2:
