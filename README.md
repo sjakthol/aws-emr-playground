@@ -4,7 +4,6 @@ CloudFormation templates for setting up Amazon EMR clusters.
 
 * Infra layer with IAM roles, S3 buckets and security groups
 * EMR cluster with JupyterLab & Zeppelin notebook environments
-* Step Functions state machines for running EMR workflows
 
 ## Prerequisites
 
@@ -18,7 +17,6 @@ Deploy infra (buckets, roles, policies, security groups etc.):
 
 ```
 make deploy-infra-emr
-make deploy-infra-workflow
 ```
 
 ### Clusters
@@ -50,20 +48,6 @@ Once done, you can access services via the following URLs:
 * JupyterLab - http://localhost:8888/
 * Zeppelin - http://localhost:8890/
 
-### Workflows
-
-Deploy workflows:
-
-```
-make deploy-workflow-static
-make deploy-workflow-parametrized
-```
-
-Workflows include:
-
-* static workflow that hard-codes cluster configuration and defines steps in state machine definition
-* parametrized workflow that takes cluster configuration and steps from execution input (see CloudFormation template for example)
-
 ### Cleanup
 
 Delete clusters:
@@ -78,22 +62,18 @@ make delete-cluster-emr-6.4.0
 make delete-cluster-emr-x.x.x
 ```
 
-Delete workflows:
-
-```
-make delete-workflow-parametrized
-make delete-workflow-static
-```
-
 Delete infra (must empty S3 buckets and clean EMR managed security group rules manually)
 
 ```
-make delete-infra-workflow
 make delete-infra-emr
 ```
 
 ## Credits
 * JupyterLab setup: https://aws.amazon.com/blogs/big-data/running-jupyter-notebook-and-jupyterhub-on-amazon-emr/
+
+## See Also
+
+* Step Function ETLs - Orchestrate EMR workflows with AWS Step Functions: https://github.com/sjakthol/aws-step-function-etls
 
 ## License
 
