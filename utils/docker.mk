@@ -7,12 +7,9 @@ ifndef NAME
 	$(error NAME variable must be defined!)
 endif
 
-login:
-	$(AWS_CMD) ecr get-login --no-include-email | bash
-
 build:
 	docker build --pull -t $(NAME):$(TAG) $(BUILD_EXTRA_ARGS) .
 
-push: build login
+push: build
 	docker tag $(NAME):$(TAG) $(ECR_REPOSITORY):$(TAG)
 	docker push $(ECR_REPOSITORY):$(TAG)

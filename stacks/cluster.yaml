@@ -14,7 +14,7 @@ Parameters:
   ReleaseLabel:
     Description: EMR release to use
     Type: String
-    Default: emr-6.4.0 # emr-5.33.1
+    Default: emr-6.5.0 # emr-5.33.1
 
 Conditions:
   IsEmr6: !Equals [!Select [0, !Split ['.', !Select [1, !Split ['-', !Ref ReleaseLabel]]]], '6']
