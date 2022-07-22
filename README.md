@@ -28,8 +28,8 @@ Deploy EMR clusters:
 make deploy-cluster
 
 # Specific EMR version (supports EMR versions that use Amazon Linux 2)
-make deploy-cluster-emr-5.33.1
-make deploy-cluster-emr-6.4.0
+make deploy-cluster-emr-5.36.0
+make deploy-cluster-emr-6.7.0
 make deploy-cluster-emr-x.x.x
 ```
 
@@ -57,8 +57,8 @@ Delete clusters:
 make delete-cluster
 
 # Cluster created with specific EMR version
-make delete-cluster-emr-5.33.1
-make delete-cluster-emr-6.4.0
+make delete-cluster-emr-5.36.0
+make delete-cluster-emr-6.7.0
 make delete-cluster-emr-x.x.x
 ```
 

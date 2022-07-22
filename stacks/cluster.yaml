@@ -14,7 +14,7 @@ Parameters:
   ReleaseLabel:
     Description: EMR release to use
     Type: String
-    Default: emr-6.5.0 # emr-5.33.1
+    Default: emr-6.7.0 # emr-5.36.0
 
 Conditions:
   IsEmr6: !Equals [!Select [0, !Split ['.', !Select [1, !Split ['-', !Ref ReleaseLabel]]]], '6']
@@ -60,11 +60,8 @@ Resources:
         CoreInstanceFleet:
           InstanceTypeConfigs:
             - { InstanceType: c5.xlarge }
-            - { InstanceType: c5a.xlarge }
-            - { InstanceType: c5d.xlarge }
             - { InstanceType: m5.xlarge }
             - { InstanceType: r5.xlarge }
-            - { InstanceType: r5d.xlarge }
           LaunchSpecifications:
               OnDemandSpecification:
                 AllocationStrategy: lowest-price
@@ -85,11 +82,8 @@ Resources:
         MasterInstanceFleet:
           InstanceTypeConfigs:
             - { InstanceType: c5.xlarge }
-            - { InstanceType: c5a.xlarge }
-            - { InstanceType: c5d.xlarge }
             - { InstanceType: m5.xlarge }
             - { InstanceType: r5.xlarge }
-            - { InstanceType: r5d.xlarge }
           LaunchSpecifications:
               OnDemandSpecification:
                 AllocationStrategy: lowest-price
