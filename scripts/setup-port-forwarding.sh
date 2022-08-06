@@ -5,7 +5,7 @@
 set -euo pipefail
 
 INSTANCE_ID="${1:-Pass instance ID as the first parameter}"
-INSTANCE_IP=$(aws ec2 describe-instances --instance-ids i-008eca32796200506 --query Reservations[0].Instances[0].PrivateIpAddress --output text)
+INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query Reservations[0].Instances[0].PrivateIpAddress --output text)
 
 echo "Updating SSM agent on instance $INSTANCE_ID with IP $INSTANCE_IP"
 SSM_CMD_ID=$(aws ssm send-command --instance-ids $INSTANCE_ID --document-name AWS-UpdateSSMAgent --query Command.CommandId --output text)
