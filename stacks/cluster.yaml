@@ -24,6 +24,7 @@ Resources:
     Type: AWS::EMR::Cluster
     Properties:
       Applications:
+        - { Name: Ganglia }
         - { Name: JupyterEnterpriseGateway }
         - { Name: Livy }
         - { Name: Spark }

@@ -33,20 +33,17 @@ make deploy-cluster-emr-6.7.0
 make deploy-cluster-emr-x.x.x
 ```
 
-When the cluster is ready, use SSM Port Forwarding to access Zeppelin / JupyterLab on the cluster master node:
+When the cluster is ready, use Amazon SSM Session Manager to access services running on the cluster (requires [SSM Session Manager Plugin for AWS CLI](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)). Execute
 ```bash
-# Zeppelin
-aws ssm start-session --target <master_instance_id> --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["8890"],"localPortNumber":["8890"]}'
-
-# JupyterLab
-aws ssm start-session --target <master_instance_id> --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["8888"],"localPortNumber":["8888"]}'
+./scripts/setup-port-forwarding.sh <master_instance_id>
 ```
+where `<master_instance_id>` is the ID of the EMR cluster master node to establish a connection to the following services
 
-where `<master_instance_id>` is the ID of the master node (requires [SSM Session Manager Plugin for AWS CLI](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html))
-
-Once done, you can access services via the following URLs:
-* JupyterLab - http://localhost:8888/
-* Zeppelin - http://localhost:8890/
+* JupyterLab: http://localhost:8888
+* Ganglia: http://localhost:8080/ganglia/
+* Yarn Resource Manager: http://localhost:8088
+* Yarn Application Manager UI Proxy (e.g. Spark UI): http://localhost:20888/proxy/__YARN_APPLICATION_ID_HERE__/
+* Zeppelin: http://localhost:8890
 
 ### Cleanup
 
